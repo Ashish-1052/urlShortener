@@ -18,6 +18,7 @@ class UrlController {
       const { shortUrlId } = req.params;
       const result = await urlServices.getLongUrlByShortUrlId(shortUrlId as string);
       res.redirect(result.rows[0].long_url);
+      void urlServices.recordClick(shortUrlId as string);
     } catch (e) {
        res.status(500).json({ error: "Internal server error" });
     }
