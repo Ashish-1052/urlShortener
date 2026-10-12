@@ -33,7 +33,7 @@ class UrlSerivces {
         values = [longUrl, expiresAt, false]
       }
       const res = await execute(query, values);
-      redisClient.set(res.rows[0].id, longUrl, 86400 * 2);
+      // redisClient.set(res.rows[0].id, longUrl, 86400 * 2);
       return res;
     } catch (e) {
       console.error(e);
@@ -41,17 +41,28 @@ class UrlSerivces {
     }
   }
 
-  getLongUrlByShortUrlId = async (shortUrlId: string) => {
+  getLongUrlByShortUrlId = async (shortUrlId: string): Promise<string | null> => {
     try {
       if (redisClient.isReady()) {
-        const exists = await redisClient.exists(shortUrlId);
-        if (exists) return redisClient.get(shortUrlId)
+        const cachedUrl = await redisClient.get(shortUrlId);
+        if (cachedUrl) return cachedUrl;
       }
+      
       const query = `
       SELECT long_url from short_urls where id = ($1)
       `
       const values = [shortUrlId];
-      return execute(query, values);
+      const res = await execute(query, values);
+      
+      if (res.rows.length === 0) return null;
+      
+      const longUrl = res.rows[0].long_url;
+      
+      if (redisClient.isReady()) {
+        await redisClient.set(shortUrlId, longUrl, 86400 * 2);
+      }
+      
+      return longUrl;
     } catch (e) {
       console.error(e);
       throw e;

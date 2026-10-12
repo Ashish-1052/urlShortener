@@ -16,8 +16,14 @@ class UrlController {
   getLongUrlByShortUrlId = async (req: Request, res: Response) => {
     try {
       const { shortUrlId } = req.params;
-      const result = await urlServices.getLongUrlByShortUrlId(shortUrlId as string);
-      res.redirect(result.rows[0].long_url);
+      const longUrl = await urlServices.getLongUrlByShortUrlId(shortUrlId as string);
+      
+      if (!longUrl) {
+        res.status(404).json({ error: "Short URL not found" });
+        return;
+      }
+
+      res.redirect(longUrl);
       void urlServices.recordClick(shortUrlId as string);
     } catch (e) {
        res.status(500).json({ error: "Internal server error" });
