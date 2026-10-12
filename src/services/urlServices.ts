@@ -1,4 +1,5 @@
 import { execute } from "../db/utils.ts";
+import redisClient from "../redis/redisClient.ts";
 
 export interface createShortUrlParams {
   longUrl: string;
@@ -20,16 +21,20 @@ class UrlSerivces {
         query = `
         INSERT INTO short_urls (id, long_url, expires_at, is_custom)
         VALUES ($1, $2, $3, $4)
+        RETURNING id
         `;
         values = [alias, longUrl, expiresAt, true]
       } else {
         query = `
         INSERT INTO short_urls (long_url, expires_at, is_custom)
         VALUES ($1, $2, $3)
+        RETURNING id
         `;
         values = [longUrl, expiresAt, false]
       }
-      return execute(query, values)
+      const res = await execute(query, values);
+      redisClient.set(res.rows[0].id, longUrl, 86400 * 2);
+      return res;
     } catch (e) {
       console.error(e);
       throw e;
@@ -38,6 +43,10 @@ class UrlSerivces {
 
   getLongUrlByShortUrlId = async (shortUrlId: string) => {
     try {
+      if (redisClient.isReady()) {
+        const exists = await redisClient.exists(shortUrlId);
+        if (exists) return redisClient.get(shortUrlId)
+      }
       const query = `
       SELECT long_url from short_urls where id = ($1)
       `
